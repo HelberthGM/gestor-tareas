@@ -1,84 +1,92 @@
-# Gestor de Tareas
+# Juego de adivinar el número
 
-![CI](https://github.com/HelberthGM/gestor-tareas/actions/workflows/ci.yml/badge.svg)
-![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=<project-key>&metric=alert_status)
-![License](https://img.shields.io/github/license/HelberthGM/gestor-tareas)
-
-Aplicación web para gestionar tareas personales.
-
-## Tabla de contenido
-- [Tecnologías](#tecnologías)
-- [Requisitos](#requisitos)
-- [Instalación](#instalación)
-- [Uso con Docker](#uso-con-docker)
-- [Pruebas](#pruebas)
-- [Flujo de ramas](#flujo-de-ramas)
-- [CI/CD](#cicd)
-- [Despliegues](#despliegues)
-- [Licencia](#licencia)
-
-## Tecnologías
-Python 3.12, Flask, SQLite, Docker, GitHub Actions.
+Juego de consola en Python donde la computadora piensa un número y tú tienes
+que descubrirlo con pistas de "mayor" o "menor". El objetivo del proyecto es
+mostrar una arquitectura pequeña pero limpia, aplicando el patrón de diseño
+**Strategy**.
 
 ## Requisitos
-- Docker 27+ y Docker Compose
-- (Opcional) Python 3.12 para desarrollo local
+
+- Python 3.10 o superior
 
 ## Instalación
+
 ```bash
-git clone git@github.com:HelberthGM/gestor-tareas.git
-cd gestor-tareas
-cp .env.example .env
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
 ```
 
-## Uso con Docker
+## Uso
+
 ```bash
-docker compose up -d --build
-# Abrir http://localhost:8000
+juego-numero                              # 1 a 100, 7 intentos
+juego-numero --minimo 1 --maximo 50 -i 5  # rango e intentos personalizados
+juego-numero --semilla 42                 # partida reproducible
+python -m juego_numero                    # alternativa sin instalar el comando
 ```
+
+Ejemplo:
+
+```
+Piensa un numero entre 1 y 100. Tienes 7 intentos.
+[1/7] Tu numero: 50
+El numero secreto es menor.
+[2/7] Tu numero: 25
+El numero secreto es mayor.
+...
+[6/7] Tu numero: 42
+¡Correcto! Lo lograste en 6 intentos.
+```
+
+## Arquitectura
+
+```
+.
+├── src/juego_numero/
+│   ├── generadores.py   # Strategy: cómo se elige el número secreto
+│   ├── juego.py         # Reglas de la partida (sin entrada/salida)
+│   ├── consola.py       # Adaptador de consola + punto de entrada
+│   └── __main__.py      # python -m juego_numero
+└── tests/
+    ├── test_generadores.py
+    └── test_juego.py
+```
+
+| Capa | Responsabilidad | Depende de |
+|---|---|---|
+| `generadores` | Elegir el número secreto | Nada |
+| `juego` | Intentos, pistas, fin de partida | `generadores` (abstracción) |
+| `consola` | `input()`/`print()` y argumentos CLI | `juego`, `generadores` |
+
+La lógica del juego no conoce ni la consola ni `random`, lo que permite
+testearla de forma determinista y cambiar la interfaz sin tocarla.
+
+## El patrón Strategy
+
+`Juego` es el **contexto**: recibe un `Generador` por constructor y delega en
+él la elección del número secreto. `Generador` es la **estrategia abstracta** y
+`Aleatorio` / `Fijo` son las **estrategias concretas**.
+
+```python
+juego = Juego(Aleatorio())   # partida real
+juego = Juego(Fijo(42))      # partida determinista para tests
+```
+
+Misma clase, comportamiento distinto: se elige por composición, sin `if` por
+tipo y sin modificar `Juego` al agregar una estrategia nueva.
 
 ## Pruebas
+
 ```bash
-pytest --cov
+pytest
+ruff check .
 ```
-
-## Flujo de ramas
-`feature/*` → `develop` → `test` → `main`. Hotfix: `hotfix/*` → `main` y `develop`.
-
-```mermaid
-gitGraph
-    commit id: "init"
-    branch test
-    branch develop
-    checkout develop
-    commit id: "setup"
-    branch feature/1-login
-    checkout feature/1-login
-    commit id: "feat: form"
-    commit id: "test: login"
-    checkout develop
-    merge feature/1-login id: "PR #2"
-    checkout test
-    merge develop id: "PR #3"
-    checkout main
-    merge test id: "PR #4" tag: "v1.0.0"
-    branch hotfix/1.0.1
-    checkout hotfix/1.0.1
-    commit id: "fix: crash"
-    checkout main
-    merge hotfix/1.0.1 id: "PR #5" tag: "v1.0.1"
-    checkout develop
-    merge hotfix/1.0.1 id: "PR #6"
-```
-## CI/CD
-Describe cada workflow: qué lo dispara y qué hace.
-
-## Despliegues
-- Producción (Render): https://<app>.onrender.com
-- Servidor propio: http://localhost:8000 (actualizado automáticamente desde `main`)
 
 ## Autor
-Nombre - [@HelberthGM](https://github.com/HelberthGM)
+
+HelberthGM
 
 ## Licencia
+
 Distribuido bajo la licencia GPL-3.0. Ver `LICENSE`.
